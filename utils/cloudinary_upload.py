@@ -2,7 +2,7 @@
 
 import cloudinary
 import cloudinary.uploader
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable
 
 class CloudinaryUploader:
     def __init__(self, cloud_name: str, api_key: str, api_secret: str):
@@ -18,28 +18,15 @@ class CloudinaryUploader:
         self, 
         image_url: str, 
         preset_name: str,
-        progress_callback=None
+        progress_callback: Optional[Callable[[str], None]] = None
     ) -> Optional[Dict[str, Any]]:
-        """
-        Upload image to Cloudinary with optional resize
-        
-        Args:
-            image_url: URL of the image to upload
-            preset_name: Name of size preset (from SIZE_PRESETS)
-            progress_callback: Function for status updates
-        
-        Returns:
-            Cloudinary upload result dict with 'secure_url' key
-        """
         try:
             if progress_callback:
                 progress_callback(f"📤 Uploading to Cloudinary folder: {self.folder_name}")
             
-            # Get preset dimensions
             from utils.model_config import SIZE_PRESETS
             preset = SIZE_PRESETS.get(preset_name, SIZE_PRESETS["Original (no resize)"])
             
-            # Build transformation
             transformation = []
             
             if preset["width"] and preset["height"]:
@@ -57,7 +44,6 @@ class CloudinaryUploader:
                 transformation.append({"quality": "auto"})
                 transformation.append({"fetch_format": "auto"})
             
-            # Upload to Cloudinary
             result = cloudinary.uploader.upload(
                 image_url,
                 folder=self.folder_name,
@@ -67,7 +53,7 @@ class CloudinaryUploader:
             )
             
             if progress_callback:
-                progress_callback(f"✅ Upload complete!")
+                progress_callback("✅ Upload complete!")
                 progress_callback(f"🔗 URL: {result['secure_url'][:60]}...")
             
             return result
