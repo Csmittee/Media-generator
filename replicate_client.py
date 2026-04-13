@@ -2,7 +2,7 @@
 
 import replicate
 import time
-from typing import Optional, Callable, Dict
+from typing import Optional, Callable
 
 class ReplicateClient:
     def __init__(self, api_token: str):
@@ -21,10 +21,16 @@ class ReplicateClient:
             
             start_time = time.time()
             
-            # Choose the correct image input key for each model
-            image_key = self._get_image_key(model_id)
+            # Choose correct image key based on model
+            model_lower = model_id.lower()
+            if "flux-kontext" in model_lower:
+                image_key = "input_image"          # Newer Flux Kontext uses this
+            elif "nano-banana" in model_lower or "gpt-image" in model_lower:
+                image_key = "image"
+            else:
+                image_key = "image"                # Safe default
             
-            input_params: Dict = {
+            input_data = {
                 "prompt": prompt,
                 image_key: image_url,
                 "guidance": 2.5,
@@ -33,45 +39,31 @@ class ReplicateClient:
                 "output_quality": 85,
             }
             
-            # Some models prefer aspect_ratio instead of fixed 16:9
-            if "nano-banana" in model_id.lower():
-                input_params["aspect_ratio"] = "match_input_image"
+            # Some models support aspect_ratio
+            if "flux" in model_lower:
+                input_data["aspect_ratio"] = "match_input_image"
             else:
-                input_params["aspect_ratio"] = "16:9"
+                input_data["aspect_ratio"] = "16:9"
             
             output = self.client.run(
                 model_id,
-                input=input_params
+                input=input_data
             )
             
             elapsed = time.time() - start_time
             if progress_callback:
                 progress_callback(f"✅ Generated in {elapsed:.1f} seconds")
             
-            # Handle different output formats
+            # Handle different output types
             if isinstance(output, list) and output:
-                return output[0]
+                return str(output[0])
             elif hasattr(output, 'url'):
                 return output.url
-            else:
-                return str(output)
-                
+            return str(output)
+            
         except Exception as e:
             error_msg = str(e)
             if progress_callback:
-                progress_callback(f"❌ Error: {error_msg[:150]}...")
-            print(f"Replicate error: {error_msg}")  # For debugging in logs
+                progress_callback(f"❌ Replicate Error: {error_msg[:200]}...")
+            print(f"Full Replicate error: {error_msg}")  # visible in logs
             return None
-    
-    def _get_image_key(self, model_id: str) -> str:
-        """Return the correct image parameter name for each model"""
-        model_lower = model_id.lower()
-        
-        if "flux-kontext" in model_lower:
-            return "img_cond_path"          # Flux Kontext family
-        elif "nano-banana" in model_lower or "gpt-image" in model_lower:
-            return "image"                  # Google & OpenAI style
-        elif "seedream" in model_lower:
-            return "image"                  # ByteDance Seedream
-        else:
-            return "image"                  # Default - most safe
