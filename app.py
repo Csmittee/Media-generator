@@ -4,22 +4,32 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 from pathlib import Path
-import sys
 
-# Make imports more robust for Streamlit Cloud
-ROOT_DIR = Path(__file__).parent
-sys.path.insert(0, str(ROOT_DIR))
+# =============================================
+# Robust path setup for Streamlit Cloud
+# =============================================
+ROOT_DIR = Path(__file__).parent.resolve()
+if str(ROOT_DIR) not in os.sys.path:
+    os.sys.path.insert(0, str(ROOT_DIR))
 
-try:
-    from utils.model_config import MODELS, SIZE_PRESETS
-    from utils.replicate_client import ReplicateClient
-    from utils.cloudinary_upload import CloudinaryUploader   # Correct filename
-except ImportError as e:
-    st.error(f"Import error: {e}")
-    st.info("Check that files in the 'utils' folder are correctly named and committed.")
-    st.stop()
+# Load environment variables
+load_dotenv()
 
-# Session state
+# Import utils (this is the most reliable way)
+from utils.model_config import MODELS, SIZE_PRESETS
+from utils.replicate_client import ReplicateClient
+from utils.cloudinary_upload import CloudinaryUploader
+
+# =============================================
+# Page Configuration
+# =============================================
+st.set_page_config(
+    page_title="AI Image Generator",
+    page_icon="🎨",
+    layout="wide"
+)
+
+# Session State
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "generated_image" not in st.session_state:
@@ -27,10 +37,13 @@ if "generated_image" not in st.session_state:
 if "status" not in st.session_state:
     st.session_state.status = ""
 
+# Title
 st.title("🎨 AI Image Generator")
-st.caption("Image-to-Image generation powered by Replicate + Cloudinary")
+st.caption("Image-to-Image generation with social media presets • Powered by Replicate + Cloudinary")
 
-# Sidebar
+# =============================================
+# Sidebar Configuration
+# =============================================
 with st.sidebar:
     st.header("⚙️ Configuration")
     
@@ -40,9 +53,10 @@ with st.sidebar:
     cloud_secret = os.getenv("CLOUDINARY_API_SECRET")
     
     if not all([replicate_token, cloud_name, cloud_key, cloud_secret]):
-        st.error("⚠️ Missing API keys! Please set up your .env file")
+        st.error("⚠️ Missing API keys! Please add them in Streamlit Cloud → Settings → Secrets")
         st.stop()
     
+    # Model Selection
     model_names = list(MODELS.keys())
     selected_model = st.selectbox(
         "🎨 Select AI Model",
@@ -52,7 +66,11 @@ with st.sidebar:
     model_info = MODELS[selected_model]
     st.caption(f"📌 {model_info.get('best_for', 'High quality generation')}")
     
-    selected_size = st.selectbox("📐 Output Size (Social Media)", list(SIZE_PRESETS.keys()))
+    # Size Preset
+    selected_size = st.selectbox(
+        "📐 Output Size (Social Media)", 
+        list(SIZE_PRESETS.keys())
+    )
     
     if st.button("🗑️ Reset Chat", use_container_width=True):
         st.session_state.messages = []
@@ -60,18 +78,20 @@ with st.sidebar:
         st.session_state.status = ""
         st.rerun()
 
-# Main area
+# =============================================
+# Main Area
+# =============================================
 st.subheader("📷 Step 1: Reference Image")
 ref_image_url = st.text_input(
     "Paste Cloudinary URL of your reference image:",
     placeholder="https://res.cloudinary.com/.../your-image.jpg",
-    help="Upload your reference image to Cloudinary first, then paste the URL here"
+    help="Upload your reference image to Cloudinary first, then paste the direct URL here"
 )
 
 st.subheader("💬 Step 2: Describe Your Vision")
 
-# Taller chat frame (closer to reference image, classic look)
-chat_container = st.container(height=500, border=True)
+# Tall classic chat container (like ChatGPT / Gemini)
+chat_container = st.container(height=520, border=True)
 
 with chat_container:
     for msg in st.session_state.messages:
@@ -88,22 +108,25 @@ def update_status(msg: str) -> None:
     st.session_state.status = msg
     status_placeholder.info(msg)
 
-# Larger chat input (placed right after the chat frame)
+# Chat input
 prompt = st.chat_input(
     "Describe the background, style, lighting, atmosphere, mood...",
     key="main_prompt"
 )
 
+# =============================================
+# Generation Logic
+# =============================================
 if prompt and ref_image_url:
+    # Add user message
     st.session_state.messages.append({"role": "user", "content": prompt})
     
-    # Re-render chat immediately
     with chat_container:
         st.chat_message("user").write(prompt)
     
     st.session_state.generated_image = None
     
-    # Clients
+    # Initialize clients
     replicate_client = ReplicateClient(api_token=replicate_token)
     cloudinary_client = CloudinaryUploader(
         cloud_name=cloud_name,
@@ -144,19 +167,19 @@ if prompt and ref_image_url:
                 "image_url": final_url
             })
             
-            # Re-render chat with new image
             with chat_container:
                 st.chat_message("assistant").write(response_text)
                 st.image(final_url, use_container_width=True)
             
             update_status("✅ Generation complete!")
             st.code(final_url, language="text")
-            st.caption("📋 Copy this URL for social media")
+            st.caption("📋 Copy this URL and paste into social media")
         else:
             update_status("❌ Failed to upload to Cloudinary")
     else:
-        update_status("❌ Failed to generate image")
+        update_status("❌ Failed to generate image with Replicate")
 
+# Show current status
 if st.session_state.status:
     status_placeholder.info(st.session_state.status)
 
