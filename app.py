@@ -1,30 +1,28 @@
-"""Claw Machine Content Factory Dashboard - AI Image Generator"""
+"""General AI Image Generator Dashboard"""
 
 import streamlit as st
 from dotenv import load_dotenv
 import os
 from pathlib import Path
 
-# Add project root to Python path (extra safety for Streamlit Cloud)
+# Safety for Streamlit Cloud
 ROOT_DIR = Path(__file__).parent
 if str(ROOT_DIR) not in os.sys.path:
     os.sys.path.insert(0, str(ROOT_DIR))
 
 from utils.model_config import MODELS, SIZE_PRESETS
 from utils.replicate_client import ReplicateClient
-from utils.cloudinary_upload import CloudinaryUploader   # ← FIXED
+from utils.cloudinary_upload import CloudinaryUploader
 
-# Load environment variables
 load_dotenv()
 
-# Page configuration
 st.set_page_config(
-    page_title="Claw Machine Content Factory",
-    page_icon="🎮",
+    page_title="AI Image Generator",
+    page_icon="🎨",
     layout="wide"
 )
 
-# Initialize session state
+# Session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "generated_image" not in st.session_state:
@@ -32,9 +30,8 @@ if "generated_image" not in st.session_state:
 if "status" not in st.session_state:
     st.session_state.status = ""
 
-# Title
-st.title("🎮 Claw Machine Content Factory")
-st.caption("Generate promotional images for Laos, Myanmar, and neighboring countries")
+st.title("🎨 AI Image Generator")
+st.caption("Image-to-Image generation powered by Replicate + Cloudinary")
 
 # Sidebar
 with st.sidebar:
@@ -49,7 +46,6 @@ with st.sidebar:
         st.error("⚠️ Missing API keys! Please set up your .env file")
         st.stop()
     
-    # Model selection
     model_names = list(MODELS.keys())
     selected_model = st.selectbox(
         "🎨 Select AI Model",
@@ -57,9 +53,8 @@ with st.sidebar:
         format_func=lambda x: MODELS[x]["name"]
     )
     model_info = MODELS[selected_model]
-    st.caption(f"📌 {model_info['best_for']}")
+    st.caption(f"📌 {model_info.get('best_for', 'High quality generation')}")
     
-    # Size preset
     selected_size = st.selectbox("📐 Output Size (Social Media)", list(SIZE_PRESETS.keys()))
     
     if st.button("🗑️ Reset Chat", use_container_width=True):
@@ -68,24 +63,27 @@ with st.sidebar:
         st.session_state.status = ""
         st.rerun()
 
-# Main UI
-st.subheader("📷 Step 1: Your Claw Machine Photo")
+# Main area
+st.subheader("📷 Step 1: Reference Image")
 ref_image_url = st.text_input(
-    "Paste Cloudinary URL of your claw machine photo:",
-    placeholder="https://res.cloudinary.com/.../claw-machine.jpg",
-    help="Upload your claw machine photo to Cloudinary first, then paste the URL here"
+    "Paste Cloudinary URL of your reference image:",
+    placeholder="https://res.cloudinary.com/.../your-image.jpg",
+    help="Upload your reference image to Cloudinary first, then paste the URL here"
 )
 
 st.subheader("💬 Step 2: Describe Your Vision")
 
-# Chat history
-for msg in st.session_state.messages:
-    if msg["role"] == "user":
-        st.chat_message("user").write(msg["content"])
-    else:
-        st.chat_message("assistant").write(msg["content"])
-        if "image_url" in msg and msg["image_url"]:
-            st.image(msg["image_url"], use_container_width=True)
+# Taller chat frame (closer to reference image, classic look)
+chat_container = st.container(height=500, border=True)
+
+with chat_container:
+    for msg in st.session_state.messages:
+        if msg["role"] == "user":
+            st.chat_message("user").write(msg["content"])
+        else:
+            st.chat_message("assistant").write(msg["content"])
+            if "image_url" in msg and msg["image_url"]:
+                st.image(msg["image_url"], use_container_width=True)
 
 status_placeholder = st.empty()
 
@@ -93,16 +91,22 @@ def update_status(msg: str) -> None:
     st.session_state.status = msg
     status_placeholder.info(msg)
 
-prompt = st.chat_input("Describe the background, lighting, atmosphere...")
+# Larger chat input (placed right after the chat frame)
+prompt = st.chat_input(
+    "Describe the background, style, lighting, atmosphere, mood...",
+    key="main_prompt"
+)
 
 if prompt and ref_image_url:
-    # Save user message
     st.session_state.messages.append({"role": "user", "content": prompt})
-    st.chat_message("user").write(prompt)
+    
+    # Re-render chat immediately
+    with chat_container:
+        st.chat_message("user").write(prompt)
     
     st.session_state.generated_image = None
     
-    # Initialize clients
+    # Clients
     replicate_client = ReplicateClient(api_token=replicate_token)
     cloudinary_client = CloudinaryUploader(
         cloud_name=cloud_name,
@@ -110,8 +114,8 @@ if prompt and ref_image_url:
         api_secret=cloud_secret
     )
     
-    # Generate image
     update_status(f"🎨 Generating with {MODELS[selected_model]['name']}...")
+    
     generated_url = replicate_client.generate_image(
         model_id=MODELS[selected_model]["replicate_id"],
         prompt=prompt,
@@ -143,20 +147,21 @@ if prompt and ref_image_url:
                 "image_url": final_url
             })
             
-            st.chat_message("assistant").write(response_text)
-            st.image(final_url, use_container_width=True)
+            # Re-render chat with new image
+            with chat_container:
+                st.chat_message("assistant").write(response_text)
+                st.image(final_url, use_container_width=True)
             
-            update_status("✅ Complete! Ready to copy URL")
+            update_status("✅ Generation complete!")
             st.code(final_url, language="text")
-            st.caption("📋 Copy this URL and paste directly into Buffer, Line OA, or Facebook")
+            st.caption("📋 Copy this URL for social media")
         else:
             update_status("❌ Failed to upload to Cloudinary")
     else:
-        update_status("❌ Failed to generate image with Replicate")
+        update_status("❌ Failed to generate image")
 
-# Show current status
 if st.session_state.status:
     status_placeholder.info(st.session_state.status)
 
 st.divider()
-st.caption("🎮 Claw Machine Content Factory | Powered by Replicate + Cloudinary | Python 3.12")
+st.caption("🎨 AI Image Generator | Powered by Replicate + Cloudinary | Python 3.12")
