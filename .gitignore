@@ -1,0 +1,7 @@
+.env
+__pycache__/
+*.pyc
+.DS_Store
+streamlit_app.log
+*.db
+*.sqlite
