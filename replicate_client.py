@@ -21,14 +21,15 @@ class ReplicateClient:
             
             start_time = time.time()
             
-            # Choose correct image key based on model
+            # Choose the correct image parameter key for each model
             model_lower = model_id.lower()
+            
             if "flux-kontext" in model_lower:
-                image_key = "input_image"          # Newer Flux Kontext uses this
+                image_key = "input_image"      # Most important fix for your model
             elif "nano-banana" in model_lower or "gpt-image" in model_lower:
                 image_key = "image"
             else:
-                image_key = "image"                # Safe default
+                image_key = "image"            # safe default
             
             input_data = {
                 "prompt": prompt,
@@ -39,7 +40,7 @@ class ReplicateClient:
                 "output_quality": 85,
             }
             
-            # Some models support aspect_ratio
+            # Flux models prefer matching the input aspect ratio
             if "flux" in model_lower:
                 input_data["aspect_ratio"] = "match_input_image"
             else:
@@ -54,16 +55,17 @@ class ReplicateClient:
             if progress_callback:
                 progress_callback(f"✅ Generated in {elapsed:.1f} seconds")
             
-            # Handle different output types
+            # Handle different output formats from Replicate
             if isinstance(output, list) and output:
                 return str(output[0])
             elif hasattr(output, 'url'):
                 return output.url
-            return str(output)
-            
+            else:
+                return str(output)
+                
         except Exception as e:
             error_msg = str(e)
             if progress_callback:
-                progress_callback(f"❌ Replicate Error: {error_msg[:200]}...")
-            print(f"Full Replicate error: {error_msg}")  # visible in logs
+                progress_callback(f"❌ Replicate Error: {error_msg[:180]}...")
+            print(f"Full error: {error_msg}")   # This will appear in Streamlit logs
             return None
