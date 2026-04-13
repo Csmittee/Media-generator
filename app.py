@@ -4,23 +4,20 @@ import streamlit as st
 from dotenv import load_dotenv
 import os
 from pathlib import Path
+import sys
 
-# Safety for Streamlit Cloud
+# Make imports more robust for Streamlit Cloud
 ROOT_DIR = Path(__file__).parent
-if str(ROOT_DIR) not in os.sys.path:
-    os.sys.path.insert(0, str(ROOT_DIR))
+sys.path.insert(0, str(ROOT_DIR))
 
-from utils.model_config import MODELS, SIZE_PRESETS
-from utils.replicate_client import ReplicateClient
-from utils.cloudinary_upload import CloudinaryUploader
-
-load_dotenv()
-
-st.set_page_config(
-    page_title="AI Image Generator",
-    page_icon="🎨",
-    layout="wide"
-)
+try:
+    from utils.model_config import MODELS, SIZE_PRESETS
+    from utils.replicate_client import ReplicateClient
+    from utils.cloudinary_upload import CloudinaryUploader   # Correct filename
+except ImportError as e:
+    st.error(f"Import error: {e}")
+    st.info("Check that files in the 'utils' folder are correctly named and committed.")
+    st.stop()
 
 # Session state
 if "messages" not in st.session_state:
