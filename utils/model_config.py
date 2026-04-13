@@ -7,7 +7,7 @@ MODELS = {
         "version": "latest",
         "cost_per_sec": 0.0014,
         "avg_time_sec": 8,
-        "best_for": "Keeping your claw machine exactly as-is"
+        "best_for": "Keeping the reference image structure accurately"
     },
     "nano-banana-pro": {
         "name": "Nano Banana Pro (Best text rendering)",
@@ -15,7 +15,7 @@ MODELS = {
         "version": "latest",
         "cost_per_sec": 0.0022,
         "avg_time_sec": 10,
-        "best_for": "Magazine-quality Thai/English text"
+        "best_for": "Magazine-quality text in any language"
     },
     "seedream-4": {
         "name": "Seedream 4 (Most realistic backgrounds)",
@@ -26,16 +26,16 @@ MODELS = {
         "best_for": "Natural lighting and scene integration"
     },
     "gpt-image-1": {
-        "name": "GPT-image-1 (Cheapest, creative)",
+        "name": "GPT-image-1 (Cheapest & creative)",
         "replicate_id": "openai/gpt-image-1",
         "version": "latest",
         "cost_per_sec": 0.00025,
         "avg_time_sec": 40,
-        "best_for": "Budget experiments and creative angles"
+        "best_for": "Budget experiments and creative variations"
     }
 }
 
-# Size presets for social media (width, height, crop mode)
+# Size presets for social media
 SIZE_PRESETS = {
     "Instagram Square (1080x1080)": {"width": 1080, "height": 1080, "crop": "fill"},
     "Facebook Post (1200x630)": {"width": 1200, "height": 630, "crop": "fill"},
