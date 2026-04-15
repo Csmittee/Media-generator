@@ -23,13 +23,15 @@ class CloudinaryUploader:
         try:
             if progress_callback:
                 progress_callback(f"📤 Uploading to Cloudinary folder: {self.folder_name}")
+
+            # Direct import (files are now in root)
+            from model_config import SIZE_PRESETS
             
-            from utils.model_config import SIZE_PRESETS
             preset = SIZE_PRESETS.get(preset_name, SIZE_PRESETS["Original (no resize)"])
             
             transformation = []
             
-            if preset["width"] and preset["height"]:
+            if preset.get("width") and preset.get("height"):
                 transformation.append({
                     "width": preset["width"],
                     "height": preset["height"],
@@ -61,4 +63,5 @@ class CloudinaryUploader:
         except Exception as e:
             if progress_callback:
                 progress_callback(f"❌ Cloudinary error: {str(e)}")
+            print(f"Cloudinary full error: {e}")
             return None
