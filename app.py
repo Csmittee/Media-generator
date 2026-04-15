@@ -3,33 +3,37 @@
 import streamlit as st
 from dotenv import load_dotenv
 import os
+from pathlib import Path
+
+# Robust path setup
+ROOT_DIR = Path(__file__).parent.resolve()
+if str(ROOT_DIR) not in os.sys.path:
+    os.sys.path.insert(0, str(ROOT_DIR))
 
 load_dotenv()
 
-# Direct imports (no utils folder anymore)
 from model_config import MODELS, SIZE_PRESETS
 from replicate_client import ReplicateClient
 from cloudinary_upload import CloudinaryUploader
 
-# Page config
 st.set_page_config(
     page_title="AI Image Generator",
     page_icon="🎨",
     layout="wide"
 )
 
-# Session state
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "generated_image" not in st.session_state:
     st.session_state.generated_image = None
 if "status" not in st.session_state:
     st.session_state.status = ""
+if "last_generated_url" not in st.session_state:   # ← New: for manual download
+    st.session_state.last_generated_url = None
 
 st.title("🎨 AI Image Generator")
-st.caption("Image-to-Image generation powered by Replicate + Cloudinary")
+st.caption("Image-to-Image generation • Replicate + Cloudinary")
 
-# Sidebar
 with st.sidebar:
     st.header("⚙️ Configuration")
     
@@ -39,7 +43,7 @@ with st.sidebar:
     cloud_secret = os.getenv("CLOUDINARY_API_SECRET")
     
     if not all([replicate_token, cloud_name, cloud_key, cloud_secret]):
-        st.error("⚠️ Missing API keys! Please add them in Streamlit Cloud → Settings → Secrets")
+        st.error("⚠️ Missing API keys!")
         st.stop()
     
     model_names = list(MODELS.keys())
@@ -48,22 +52,21 @@ with st.sidebar:
         model_names,
         format_func=lambda x: MODELS[x]["name"]
     )
-    st.caption(f"📌 {MODELS[selected_model].get('best_for', 'High quality generation')}")
+    st.caption(f"📌 {MODELS[selected_model].get('best_for', '')}")
     
-    selected_size = st.selectbox("📐 Output Size (Social Media)", list(SIZE_PRESETS.keys()))
+    selected_size = st.selectbox("📐 Output Size", list(SIZE_PRESETS.keys()))
     
     if st.button("🗑️ Reset Chat", use_container_width=True):
         st.session_state.messages = []
         st.session_state.generated_image = None
+        st.session_state.last_generated_url = None
         st.session_state.status = ""
         st.rerun()
 
-# Main UI
 st.subheader("📷 Step 1: Reference Image")
 ref_image_url = st.text_input(
     "Paste Cloudinary URL of your reference image:",
-    placeholder="https://res.cloudinary.com/.../your-image.jpg",
-    help="Must be a direct public Cloudinary URL"
+    placeholder="https://res.cloudinary.com/.../your-image.jpg"
 )
 
 st.subheader("💬 Step 2: Describe Your Vision")
@@ -107,6 +110,8 @@ if prompt and ref_image_url:
     )
 
     if generated_url:
+        st.session_state.last_generated_url = generated_url   # ← Save for manual download
+
         update_status("📤 Uploading to Cloudinary...")
         upload_result = cloudinary_client.upload_image(
             image_url=generated_url,
@@ -116,7 +121,7 @@ if prompt and ref_image_url:
         
         if upload_result:
             final_url = upload_result["secure_url"]
-            response_text = f"✅ Generated using **{MODELS[selected_model]['name']}**\n\n📏 Size: {selected_size}\n\n🔗 [View image]({final_url})"
+            response_text = f"✅ Generated using **{MODELS[selected_model]['name']}**\n\n📏 Size: {selected_size}\n\n🔗 [View on Cloudinary]({final_url})"
             
             st.session_state.messages.append({
                 "role": "assistant",
@@ -131,9 +136,20 @@ if prompt and ref_image_url:
             update_status("✅ Complete!")
             st.code(final_url, language="text")
         else:
-            update_status("❌ Upload failed")
+            # Upload failed but generation succeeded → show manual download
+            update_status("⚠️ Upload to Cloudinary failed, but image was generated!")
+            st.error("Cloudinary upload failed. Use the button below to download the image manually.")
+            
+            # Show the generated image + download button
+            st.image(generated_url, use_container_width=True)
+            st.download_button(
+                label="⬇️ Download Generated Image",
+                data=requests.get(generated_url).content,
+                file_name="generated_image.jpg",
+                mime="image/jpeg"
+            )
     else:
-        update_status("❌ Generation failed - check Replicate token or image URL")
+        update_status("❌ Generation failed")
 
 if st.session_state.status:
     status_placeholder.info(st.session_state.status)
