@@ -17,14 +17,14 @@ class ReplicateClient:
     ) -> Optional[str]:
         try:
             if progress_callback:
-                progress_callback(f"🚀 Calling {model_id} on Replicate...")
+                progress_callback(f"🚀 Calling {model_id}...")
 
             start_time = time.time()
 
-            # Correct image key for Flux Kontext models
+            # Correct parameter name for each model
             model_lower = model_id.lower()
-            if "flux-kontext" in model_lower or "flux" in model_lower:
-                image_key = "input_image"      # This is the key Flux Kontext needs
+            if "flux-kontext" in model_lower:
+                image_key = "img_cond_path"      # ← This is what prunaai/flux-kontext needs
             else:
                 image_key = "image"
 
@@ -37,7 +37,6 @@ class ReplicateClient:
                 "output_quality": 85,
             }
 
-            # Flux models prefer matching the input image aspect ratio
             if "flux" in model_lower:
                 input_data["aspect_ratio"] = "match_input_image"
 
@@ -47,7 +46,6 @@ class ReplicateClient:
             if progress_callback:
                 progress_callback(f"✅ Generated in {elapsed:.1f} seconds")
 
-            # Handle output formats
             if isinstance(output, list) and output:
                 return str(output[0])
             elif hasattr(output, 'url'):
@@ -57,6 +55,6 @@ class ReplicateClient:
         except Exception as e:
             error_msg = str(e)
             if progress_callback:
-                progress_callback(f"❌ Replicate Error: {error_msg[:220]}...")
-            print(f"Full Replicate error: {error_msg}")   # Check logs if needed
+                progress_callback(f"❌ Replicate Error: {error_msg[:200]}...")
+            print(f"Full error: {error_msg}")
             return None
